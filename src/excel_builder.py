@@ -12,8 +12,11 @@ English inside the cells; the sheet direction handles the Hebrew layout.
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+
+_MAX_CELL = 32767  # Excel's hard per-cell character limit
 
 _BASE_FONT = "Arial"
 _HEADER_FILL = "D9D9D9"
@@ -40,6 +43,15 @@ _GAP_HEADERS = [
     "השאלה המדויקת ללקוח העסקי", "השפעה אם לא ייפתר לפני הפיתוח",
 ]
 _GAP_WIDTHS = [5, 28, 50, 55, 45]
+
+
+def _clean(value: object) -> object:
+    """Sanitise an LLM-supplied cell value: strip control chars openpyxl rejects
+    (IllegalCharacterError) and clamp to Excel's per-cell limit. Non-strings pass
+    through untouched (numbers, blanks)."""
+    if not isinstance(value, str):
+        return value
+    return ILLEGAL_CHARACTERS_RE.sub("", value)[:_MAX_CELL]
 
 
 def _epic_colors(epics: list[dict]) -> dict[str, str]:
@@ -69,16 +81,16 @@ def _build_background(ws, model: dict, colors: dict[str, str]) -> None:
     ws.column_dimensions["A"].width = 100
     bg = model.get("background", {})
     r = 1
-    ws.cell(r, 1, model.get("title", "טבלת משימות ליישום")).font = Font(
+    ws.cell(r, 1, _clean(model.get("title", "טבלת משימות ליישום"))).font = Font(
         name=_BASE_FONT, bold=True, size=14
     )
     r += 2
     for line in bg.get("intro", []):
-        ws.cell(r, 1, line).alignment = _TOP_RIGHT
+        ws.cell(r, 1, _clean(line)).alignment = _TOP_RIGHT
         r += 1
     if bg.get("source"):
         r += 1
-        ws.cell(r, 1, bg["source"]).alignment = _TOP_RIGHT
+        ws.cell(r, 1, _clean(bg["source"])).alignment = _TOP_RIGHT
         r += 1
     r += 1
     ws.cell(r, 1, "מקרא צבעים (עמודה Epic):").font = Font(name=_BASE_FONT, bold=True)
@@ -87,7 +99,7 @@ def _build_background(ws, model: dict, colors: dict[str, str]) -> None:
         epic_id = epic.get("id")
         if not epic_id:
             continue
-        cell = ws.cell(r, 1, epic.get("title", epic_id))
+        cell = ws.cell(r, 1, _clean(epic.get("title", epic_id)))
         cell.fill = PatternFill("solid", fgColor=colors[epic_id])
         cell.alignment = _TOP_RIGHT
         r += 1
@@ -96,7 +108,7 @@ def _build_background(ws, model: dict, colors: dict[str, str]) -> None:
     r += 1
     for item in model.get("status_legend", []):
         parts = [p for p in (item.get("label"), item.get("desc")) if p]
-        cell = ws.cell(r, 1, " - ".join(parts))
+        cell = ws.cell(r, 1, _clean(" - ".join(parts)))
         color = item.get("color")
         if color:
             cell.fill = PatternFill("solid", fgColor=color)
@@ -110,7 +122,7 @@ def _build_background(ws, model: dict, colors: dict[str, str]) -> None:
     for obj in model.get("object_map", []):
         note = f"  |  {obj['note']}" if obj.get("note") else ""
         line = f"{obj.get('business', '')} = {obj.get('api', '')}{note}"
-        ws.cell(r, 1, line).alignment = _TOP_RIGHT
+        ws.cell(r, 1, _clean(line)).alignment = _TOP_RIGHT
         r += 1
 
 
@@ -128,7 +140,7 @@ def _build_tasks(ws, model: dict, colors: dict[str, str], status_colors: dict[st
             task.get("dependencies", "-"), task.get("status", ""), "",
         ]
         for c, value in enumerate(values, start=1):
-            cell = ws.cell(r, c, value)
+            cell = ws.cell(r, c, _clean(value))
             cell.alignment = _TOP_RIGHT
             cell.border = _BORDER
         epic_color = colors.get(task.get("epic"))
@@ -150,7 +162,7 @@ def _build_gaps(ws, model: dict) -> None:
             gap.get("question", ""), gap.get("impact", ""),
         ]
         for c, value in enumerate(values, start=1):
-            cell = ws.cell(r, c, value)
+            cell = ws.cell(r, c, _clean(value))
             cell.alignment = _TOP_RIGHT
             cell.border = _BORDER
 
