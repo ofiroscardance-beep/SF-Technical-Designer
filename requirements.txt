@@ -1,0 +1,6 @@
+# Active system dependencies.
+python-docx>=1.1.2  # used by src/renderer.py
+openpyxl>=3.1.2     # used by src/excel_builder.py
+
+# Note: obsolete LangGraph/Anthropic/pypdf/dotenv deps moved to legacy/ along
+# with the old Python app. Reinstall those only if reviving legacy/.

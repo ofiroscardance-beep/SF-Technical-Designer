@@ -1,0 +1,26 @@
+TECHNICAL DESIGN SPECIFICATION
+
+1. Overview
+   Short summary of the business requirement and the proposed solution approach.
+
+2. Business Requirement
+   The raw requirement, restated and clarified.
+
+3. Current Org State (Discovery Findings)
+   Relevant existing objects, fields, automation discovered via metadata investigation.
+
+4. Proposed Solution
+   4.1 Solution Type: OOTB (Declarative) | Customization (Apex/LWC)
+   4.2 Justification: Why this approach. If customization, why OOTB is impossible.
+   4.3 Components: Objects, fields, flows, permission sets, etc.
+
+5. Design Details
+   Field-level and automation-level design. SOQL/data model notes.
+
+6. Governor & Platform Limits
+   Relevant Salesforce limits verified against official documentation.
+
+7. Assumptions & Open Questions
+
+8. Appendix
+   References to official Salesforce documentation used.
