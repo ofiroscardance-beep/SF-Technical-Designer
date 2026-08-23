@@ -1,0 +1,4 @@
+# Normalize line endings. Shell scripts MUST stay LF so the plugin bootstrap
+# runs on macOS/Linux; Windows Git Bash handles LF fine too.
+* text=auto
+*.sh text eol=lf
