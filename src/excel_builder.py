@@ -26,6 +26,7 @@ _EPIC_PALETTE = [
 ]
 
 _TOP_RIGHT = Alignment(horizontal="right", vertical="top", wrap_text=True)
+_TOP_LEFT_LTR = Alignment(horizontal="left", vertical="top", wrap_text=True, readingOrder=1)
 _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True)
 _THIN = Side(style="thin", color="BFBFBF")
 _BORDER = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_THIN)
@@ -38,6 +39,8 @@ _TASK_HEADERS = [
 _TASK_WIDTHS = [5, 16, 12, 30, 20, 46, 40, 60, 18, 24, 34]
 _EPIC_COL = _TASK_HEADERS.index("Epic") + 1
 _STATUS_COL = _TASK_HEADERS.index("סטטוס / פתוח לבירור") + 1
+# "פרומפט מדויק ליישום" — English, left-aligned LTR (a task-prompt Claude can execute)
+_PROMPT_COL = _TASK_HEADERS.index("פרומפט מדויק ליישום בפועל") + 1
 _GAP_HEADERS = [
     "#", "נושא", "מה עלה / הסתירה שנמצאה",
     "השאלה המדויקת ללקוח העסקי", "השפעה אם לא ייפתר לפני הפיתוח",
@@ -141,7 +144,7 @@ def _build_tasks(ws, model: dict, colors: dict[str, str], status_colors: dict[st
         ]
         for c, value in enumerate(values, start=1):
             cell = ws.cell(r, c, _clean(value))
-            cell.alignment = _TOP_RIGHT
+            cell.alignment = _TOP_LEFT_LTR if c == _PROMPT_COL else _TOP_RIGHT
             cell.border = _BORDER
         epic_color = colors.get(task.get("epic"))
         if epic_color:

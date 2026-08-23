@@ -26,6 +26,29 @@ propose solutions and you never modify the org.
 - Target the user's **default org** (set via `sf config set target-org <alias>`).
   Do not guess an org; if no default is configured, say so and stop.
 
+## Efficiency — the `sf` CLI is the bottleneck (minimize calls)
+
+Each `sf` invocation is a cold start + org round-trip (~10–15s). Total time is
+latency × number of sequential calls — cut the call count first.
+
+- **Plan, then batch.** List every fact you need up front, then issue the FEWEST
+  queries. Prefer ONE Tooling query spanning many objects over N per-object
+  describes:
+  - Fields of many objects in one call — `SELECT QualifiedApiName,
+    EntityDefinition.QualifiedApiName, DataType FROM FieldDefinition WHERE
+    EntityDefinition.QualifiedApiName IN ('Account','Discussion__c',...)`.
+  - Object existence in one call — `SELECT QualifiedApiName FROM EntityDefinition
+    WHERE QualifiedApiName IN ('Discussion__c','Committee__c',...)`.
+  (`FieldDefinition` rejects OR — use `IN`, never disjunctions.)
+- **Parallelize independent queries.** Run unrelated `sf data query` calls
+  concurrently rather than one-after-another; batching still beats parallelism, so
+  do both.
+- **One org.** Target a single `--target-org`. Once the source-of-truth org is
+  identified, query only it; check a second org ONLY for a specific delta the user
+  names — never re-scan the full schema in both.
+- **Query once per session.** Data is fresh within a session — capture exact API
+  names the FIRST time; never re-run the same describes later to "lock" names.
+
 ## Hard rules
 
 - **SELECT only.** Never run `insert`/`update`/`delete`/`upsert` or any command

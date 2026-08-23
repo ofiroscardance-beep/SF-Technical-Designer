@@ -33,9 +33,14 @@ API names — you do not invent or guess API names.
 1. **Group into Epics** — one Epic per functional area of the spec, plus the
    standard lifecycle Epics: data model & permissions (Epic 0), testing/security/
    UAT, and Page-Layout/UX. Give each Epic a stable id (`Epic 0`, `Epic 1`, ...).
-2. **One task per atomic deliverable** — a field, an automation, a form, an Apex
-   class, a QA pass. Each task gets an id `US-<epic>.<n>` and a **work type**
-   (Configuration / Apex / LWC / OmniStudio DocGen / Email Template / QA / UAT).
+2. **Implementation tasks ONLY.** One task per atomic deliverable a developer or
+   Claude can build/execute in the org — a field, an automation, a form, an Apex
+   class, an Apex test class, a data change. Each gets an id `US-<epic>.<n>` and a
+   **work type** (Configuration / Apex / LWC / OmniStudio DocGen / Email Template /
+   Apex Test). **Exclude non-implementation items** — business/UAT sign-offs,
+   approvals with a product owner or business rep, stakeholder coordination,
+   go-live meetings (e.g. "final approval of edge cases with a back-office rep").
+   A genuine open decision goes to the gaps sheet; otherwise omit it.
 3. **OOTB-First (mandate):** the implementation prompt must reach for declarative
    first (Custom Field + Page Layout, Flow, Validation Rule, Permission Set).
    Prescribe Apex/LWC only when declarative is genuinely impossible, and say why
@@ -43,15 +48,12 @@ API names — you do not invent or guess API names.
 4. **Ground column G** — exact objects and `Field__c` API names from the metadata
    the orchestrator supplied. If a needed field is unverified, do NOT fabricate
    it: raise a **GAP** and reference it in the task's dependencies/status.
-5. **Write a readable, self-explanatory build prompt (column H)** — write it for
-   a person who reads it cold and needs to *understand* the task, not just execute
-   keystrokes. Open with the goal and context in plain Hebrew (what we're building
-   and why it matters to the process), then walk through the *how* as flowing
-   prose. Weave the technical components into that explanation — Setup navigation,
-   field types, `Object__c.Field__c` API names, class/method names, mapping — so a
-   developer can build it without re-reading the spec, yet a reviewer can follow
-   the reasoning. Avoid a bare command checklist; explain, don't just dictate.
-   Salesforce terms stay English; the explanation is Hebrew.
+5. **Split purpose (Hebrew) from prompt (English).** Column F (`description`) is
+   the readable **Hebrew** purpose/context — what we build and why it matters.
+   Column H (`impl_prompt`) is an **English**, technical, imperative, self-contained
+   task-prompt that can be handed to Claude to execute: exact Setup navigation,
+   `Object__c.Field__c` API names, field types, class/method names, DML/SOQL. Write
+   clear build instructions, OOTB-first — not prose.
 6. **Open questions → gaps sheet** — every spec `open_question`, contradiction,
    or non-trivial `risk` becomes a numbered `GAP-N` row, referenced from the
    tasks that depend on it, with a readiness status.
@@ -59,7 +61,9 @@ API names — you do not invent or guess API names.
 ## Language rules
 
 - Salesforce terminology (Object/API/Flow/Apex/LWC names) stays **English**.
-- Titles, descriptions, prompts, gaps — **Hebrew**.
+- Titles, descriptions (column F), and gaps — **Hebrew**.
+- The execution prompt (column H) — **English**: a technical task-prompt Claude
+  can run directly.
 - The reviewer-notes column (last column) is left **blank** for the human.
 
 ## Steps
@@ -94,7 +98,7 @@ API names — you do not invent or guess API names.
     "work_type": "Configuration (Custom Field + Page Layout)",
     "description": "<מטרה ולוגיקה בעברית, מעוגן באפיון>",
     "api_objects": "Object__c.Field__c (...)",
-    "impl_prompt": "<טקסט מוסבר וקריא: מטרה והקשר, ואז ה-how בפרוזה עם הרכיבים הטכניים משולבים (נתיב Setup, סוגי שדות, Object__c.Field__c, שמות מחלקות). OOTB-First>",
+    "impl_prompt": "<English, imperative, self-contained build instructions for Claude: exact Setup path, field types, Object__c.Field__c, class/method names, DML/SOQL. OOTB-first>",
     "dependencies": "-",
     "status_level": "ready",
     "status": "מוכן ליישום"

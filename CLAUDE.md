@@ -44,15 +44,21 @@ sub-agent inside another sub-agent.
 ## Flow
 
 1. Discovery — spawn metadata-explorer + knowledge-expert (in parallel when
-   independent). Target the org via `--target-org <alias>`.
+   independent). Target a SINGLE org via `--target-org <alias>`. Make this one
+   pass exhaustive: capture the exact API names for everything the spec AND the
+   tasks will reference, so no second "locking" scan is needed later.
 2. Synthesize the facts JSON (below). Decide `solution_type` + justification.
-3. Spawn document-generator with the facts JSON + an output path
+3. Resolve decisions BEFORE rendering — surface every open question / assumption /
+   OOTB-vs-code choice to the user and get answers, so the spec renders once (no
+   render → discover-decisions → re-render).
+4. Spawn document-generator with the facts JSON + an output path
    (`output/<slug>.docx`). Report the saved path.
-4. **GATE — do not run automatically.** Only after the user confirms the spec was
-   reviewed, corrected, and approved: re-run metadata-explorer to lock the exact
-   API names the tasks will reference, then spawn task-planner (Mode A: corrected
-   facts JSON, or Mode B: a corrected `.docx` path) with those grounded API names
-   and an output path (`output/<slug>_tasks.xlsx`). Report the saved path.
+5. **GATE — do not run automatically.** Only after the user confirms the spec was
+   reviewed, corrected, and approved: run a TARGETED delta re-check with
+   metadata-explorer for ONLY the fields the correction added/changed (not a full
+   re-scan — step 1 already captured the rest), then spawn task-planner (Mode A:
+   corrected facts JSON, or Mode B: a corrected `.docx` path) with the grounded API
+   names and an output path (`output/<slug>_tasks.xlsx`). Report the saved path.
 
 ## Facts JSON (data, not layout — the template defines layout)
 
