@@ -1,0 +1,4 @@
+# Rendering dependencies for the sf-technical-designer plugin engines.
+# Installed into the plugin's persistent venv by hooks/bootstrap-engine.sh.
+python-docx>=1.1.2   # src/renderer.py     — RTL .docx
+openpyxl>=3.1.2      # src/excel_builder.py — RTL .xlsx

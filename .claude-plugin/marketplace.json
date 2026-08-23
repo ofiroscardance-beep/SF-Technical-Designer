@@ -1,0 +1,11 @@
+{
+  "name": "sf-tools",
+  "owner": { "name": "Ofir Bar" },
+  "plugins": [
+    {
+      "name": "sf-technical-designer",
+      "source": "./plugins/sf-technical-designer",
+      "description": "Autonomous Salesforce architect: turns a business requirement into a grounded technical spec (.docx) and, after human approval, an implementation backlog (.xlsx)."
+    }
+  ]
+}

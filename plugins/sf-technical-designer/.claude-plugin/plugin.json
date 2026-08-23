@@ -1,0 +1,6 @@
+{
+  "name": "sf-technical-designer",
+  "description": "Autonomous Salesforce architect: discovery-first, OOTB-first. Turns a business requirement into a grounded technical spec (.docx) and, after human approval, an implementation backlog (.xlsx). Bundles four specialist agents and the RTL rendering engines.",
+  "version": "0.1.0",
+  "author": { "name": "Ofir Bar" }
+}
