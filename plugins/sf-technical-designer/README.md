@@ -36,7 +36,8 @@ network, it prints the exact `pip install` command to run manually.
 The orchestrator runs discovery (metadata-explorer + knowledge-expert),
 synthesizes the design, and renders the spec to `output/<slug>.docx`. Then it
 **stops** — review and correct the spec. Only after you approve does it lock the
-exact API names and generate the implementation backlog `output/<slug>_tasks.xlsx`.
+exact API names and generate the implementation backlog `output/<slug>_tasks.xlsx`
+alongside the data dictionary `output/<slug>_fields.xlsx`.
 
 ## What's inside
 
@@ -45,7 +46,9 @@ exact API names and generate the implementation backlog `output/<slug>_tasks.xls
 | `agents/metadata-explorer.md` | Read-only org schema discovery via `sf`. |
 | `agents/knowledge-expert.md` | Feature/limit verification against official SF docs. |
 | `agents/document-generator.md` | Renders the spec `.docx` (`src/renderer.py`). |
+| `agents/permissions-architect.md` | Renders the permissions matrix `.xlsx` (`src/permissions_builder.py`), offered when the security model is complex. |
 | `agents/task-planner.md` | Renders the backlog `.xlsx` (`src/excel_builder.py`), gated on approval. |
+| `agents/field-mapper.md` | Renders the data dictionary `.xlsx` (`src/fields_builder.py`) — a tab per ERD entity with its standard fields (verified against the Object Reference) and custom fields. Same gate as the backlog. |
 | `commands/sf-tech-spec.md` | The orchestration entry point. |
 | `hooks/` | SessionStart bootstrap: venv + engine paths. |
 | `src/`, `SF_Tech_Spec_Template.md` | RTL render engines and the binding spec structure. |

@@ -1,5 +1,5 @@
 ---
-description: Turn a Salesforce business requirement into a grounded technical spec (.docx) and, after approval, an implementation backlog (.xlsx). Orchestrates the four bundled specialist agents.
+description: Turn a Salesforce business requirement into a grounded technical spec (.docx) and, after approval, an implementation backlog and a data dictionary (.xlsx). Orchestrates the six bundled specialist agents.
 argument-hint: <business requirement>
 ---
 
@@ -8,7 +8,7 @@ pipeline below for this business requirement:
 
 > $ARGUMENTS
 
-Delegate to the four bundled specialist agents via the Task/Agent tool. Keep the
+Delegate to the six bundled specialist agents via the Task/Agent tool. Keep the
 one-level pattern: you (main session) delegate to specialists; a specialist never
 spawns another. Batch independent delegations in parallel.
 
@@ -41,14 +41,29 @@ spawns another. Batch independent delegations in parallel.
    assumption, and OOTB-vs-code choice to the user and get answers now. Render only
    once decisions are closed — never render, then discover unresolved decisions,
    then re-render.
-4. **Render the spec** — spawn document-generator with the facts JSON and output
+4. **Permissions check — offer, don't assume.** If the requirement has complex
+   permissions (3+ personas with different access, portal users next to internal
+   users, record-level visibility via groups/sharing rules/role hierarchy, or an
+   approval chain that moves a record between roles), tell the user in one line
+   that a permissions matrix `.xlsx` can be produced alongside the spec and ask
+   whether to build it. On a yes, spawn permissions-architect with the facts JSON,
+   the grounded permission metadata (Permission Sets, PSGs, Permission Set
+   Licenses, UserRoles, Public Groups, Sharing Rules, OWD) and output path
+   `output/<slug>_permissions.xlsx`. When the trigger fires, step 1 must have
+   captured that permission metadata too.
+5. **Render the spec** — spawn document-generator with the facts JSON and output
    path `output/<slug>.docx`. Report the saved path.
-5. **GATE — stop. Do not continue automatically.** Only after the user confirms
+6. **GATE — stop. Do not continue automatically.** Only after the user confirms
    the spec was reviewed, corrected, and approved: run a TARGETED delta re-check
    with metadata-explorer for ONLY the fields the correction added or changed
    (not a full re-scan — step 1 already captured the rest), then spawn task-planner
    (Mode A: corrected facts JSON, or Mode B: a corrected `.docx` path) with the
    grounded API names and output path `output/<slug>_tasks.xlsx`. Report the path.
+7. **Same gate — data dictionary.** With the same approved facts, spawn
+   field-mapper in parallel with task-planner: a tab per ERD entity with its
+   standard fields (API names verified against the official Object Reference)
+   and its custom fields (existing org fields + the ones to create), rendered to
+   `output/<slug>_fields.xlsx`. Report the path.
 
 ## Facts JSON (data, not layout — the template defines layout)
 ```json
