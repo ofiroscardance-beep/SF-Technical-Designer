@@ -1,10 +1,14 @@
-"""Render a permissions model into the fixed four-sheet RTL permissions audit .xlsx.
+"""Render a permissions model into the fixed six-sheet RTL permissions audit .xlsx.
 
-Reproduces the "AUDIT — הרשאות רוחביות" layout exactly, with generic content:
-  1-תפקידים בתהליך      — every role by process stage
-  2-מטריצת אובייקטים    — role (rows) x object (columns) CRUD matrix
-  3-קבוצות ושיתוף       — the sharing model, widest exposure tier first
-  4- טכני (לארכיטקט)    — licenses, permission sets, groups, build status
+Follows the "AUDIT — הרשאות רוחביות" layout, with generic content:
+  1-תפקידים בתהליך         — every role by process stage
+  2-מטריצת אובייקטים       — role (rows) x object (columns) CRUD matrix
+  3-קבוצות ושיתוף          — the sharing model, widest exposure tier first
+  4- טכני (לארכיטקט)       — license, base profile, PSG, permission sets, status
+  5-מטריצת Permission Sets — base profile per license, then one row per permission
+                              set: object CRUD, system permissions, FLS, tabs,
+                              Apex and notes, in banded column groups
+  6-הרכב PSG               — permission set (rows) x permission set group (columns)
 
 Every sheet is true RTL (sheet_view.rightToLeft). Salesforce API names stay
 English inside the cells; the sheet direction handles the Hebrew layout.
@@ -63,14 +67,44 @@ _SHARING_SUBTITLE = (
     "שיתוף (למטה) = אילו רשומות רואים בפועל"
 )
 _TECH_HEADERS = [
-    "תפקיד", "ROLE", "רישיון בסיס (User)", "Permission Set License",
+    "תפקיד", "ROLE", "רישיון בסיס (User)", "פרופיל בסיס", "Permission Set License",
     "Permission Set Group", "Permission Sets ישירים", "קבוצות ציבוריות", "סטטוס",
 ]
-_TECH_WIDTHS = [22, 14, 18, 30, 21.86, 20.86, 34.86, 18]
-_TECH_KEYS = [
-    "role", "channel", "license", "ps_license", "psg",
-    "permission_sets", "public_groups", "status",
+_TECH_WIDTHS = [22, 14, 18, 26, 26, 24, 26, 30, 16]
+# key, alignment, font size, fill source
+_TECH_COLS = [
+    ("role", "right_top", 11, None),
+    ("channel", "center_wrap", 11, "channel"),
+    ("license", "center_wrap", 9, "license"),
+    ("base_profile", "center_wrap", 9, None),
+    ("ps_license", "right_top", 9, None),
+    ("psg", "right_top", 10, None),
+    ("permission_sets", "right_top", 10, None),
+    ("public_groups", "right_top", 10, None),
+    ("status", "right_top", 11, "status"),
 ]
+
+_PROFILE_HEADERS = ["רישיון (User License)", "פרופיל בסיס", "הערה"]
+_PS_SUBTITLE = (
+    "פרופיל בסיס מינימלי לכל רישיון · Permission Set אחד לכל תפקיד (בסיס) · "
+    "הרחבות פונקציונליות נפרדות · הכל נארז ב-Permission Set Group"
+)
+_PS_MATRIX_LEGEND = (
+    "מקרא:  C = יצירה · R = צפייה · U = עריכה · D = מחיקה · — = ה-PS לא מעניק  ·  "
+    "שורה באדום = Muting Permission Set — מה שהיא משתיקה בתוך ה-PSG"
+)
+_PSG_SUBTITLE = (
+    "כל Permission Set מופיע פעם אחת · ✓ = נכלל ב-Permission Set Group · "
+    "כמה ✓ בשורה = הרחבה שמשותפת לכמה תפקידים"
+)
+_PS_DETAIL_HEADERS = [
+    "שדות רגישים / FLS", "Tabs · Apps", "Apex / Flows / Custom Permissions", "הערות",
+]
+_PS_DETAIL_KEYS = ["fls", "tabs_apps", "apex", "notes"]
+_PS_DETAIL_WIDTHS = [34, 26, 30, 26]
+_MUTING_FILL = "FFCDD2"
+_CHECK_FILL = "C8E6C9"
+_CHECK = "✓"
 
 
 def _clean(value: object) -> object:
@@ -215,35 +249,204 @@ def _build_technical(ws, model: dict) -> None:
     _write(ws, 1, 1, technical.get("title", "נתונים טכניים (לארכיטקט)"),
            font=Font(name=_BASE_FONT, bold=True, size=12), border=False)
     _write_header_row(ws, 2, _TECH_HEADERS, _DARK_HEADER)
-    channel_colors = _tag_colors([r.get("channel", "") for r in rows], _CHANNEL_PALETTE)
-    license_colors = _tag_colors([r.get("license", "") for r in rows], _LICENSE_PALETTE)
+    tags = {
+        "channel": _tag_colors([r.get("channel", "") for r in rows], _CHANNEL_PALETTE),
+        "license": _tag_colors([r.get("license", "") for r in rows], _LICENSE_PALETTE),
+    }
     for i, entry in enumerate(rows):
         row = 3 + i
-        fills = {
-            2: channel_colors.get(entry.get("channel", "")),
-            3: license_colors.get(entry.get("license", "")),
-            8: _STATUS_COLORS.get(entry.get("status_level", ""), "FFF9C4"),
-        }
-        for c, key in enumerate(_TECH_KEYS, start=1):
-            if c == 1:
-                align, font = _RIGHT_TOP, Font(name=_BASE_FONT, bold=True)
-            elif c in (2, 3):
-                align, font = _CENTER_WRAP, Font(name=_BASE_FONT, size=9 if c == 3 else 11)
+        for c, (key, align, size, source) in enumerate(_TECH_COLS, start=1):
+            if source == "status":
+                fill = _STATUS_COLORS.get(entry.get("status_level", ""), "FFF9C4")
             else:
-                align, font = _RIGHT_TOP, Font(name=_BASE_FONT, size=9 if c == 4 else 11)
-            _write(ws, row, c, entry.get(key, _NONE_MARK), fill=fills.get(c),
-                   align=align, font=font)
+                fill = tags.get(source, {}).get(entry.get(key, ""))
+            _write(ws, row, c, entry.get(key, _NONE_MARK), fill=fill,
+                   align=_CENTER_WRAP if align == "center_wrap" else _RIGHT_TOP,
+                   font=Font(name=_BASE_FONT, size=size, bold=c == 1))
     ws.freeze_panes = "B3"
 
 
+def _is_muting(entry: dict) -> bool:
+    return "Muting" in (entry.get("type") or "")
+
+
+def _sheet_intro(ws, title: str, subtitle: str) -> None:
+    ws.sheet_view.rightToLeft = True
+    _write(ws, 1, 1, title, border=False,
+           font=Font(name=_BASE_FONT, bold=True, size=14, color=_SHARING_HEADER))
+    _write(ws, 2, 1, subtitle, border=False,
+           font=Font(name=_BASE_FONT, size=10, color=_SUB_HEADER))
+
+
+def _write_ps_name(ws, row: int, entry: dict) -> None:
+    muting = _is_muting(entry)
+    _write(ws, row, 1, entry.get("name", ""), fill=_MUTING_FILL if muting else None,
+           align=Alignment(horizontal="right", wrap_text=True),
+           font=Font(name=_BASE_FONT, bold=True, size=10))
+
+
+def _write_base_profiles(ws, profiles: list[dict], start: int, span: int) -> int:
+    """Render the license → base-profile mini table; return the next free row."""
+    span = max(span, 6)
+    mid = min(4, span - 1)
+    spans = ((1, 1, "license"), (2, mid, "profile"), (mid + 1, span, "note"))
+    rows = [{"license": _PROFILE_HEADERS[0], "profile": _PROFILE_HEADERS[1],
+             "note": _PROFILE_HEADERS[2], "header": True}, *profiles]
+    for i, entry in enumerate(rows):
+        row = start + i
+        is_header = entry.get("header", False)
+        for first, last, key in spans:
+            _write(ws, row, first, entry.get(key, _NONE_MARK),
+                   fill=_SUB_HEADER if is_header else None,
+                   align=_HEADER_ALIGN if is_header else _RIGHT_MIDDLE,
+                   font=Font(name=_BASE_FONT, size=10, bold=is_header or key == "profile",
+                             color=_WHITE if is_header else None))
+            for c in range(first + 1, last + 1):
+                _write(ws, row, c, None, fill=_SUB_HEADER if is_header else None)
+            if last > first:
+                ws.merge_cells(start_row=row, start_column=first, end_row=row, end_column=last)
+    return start + len(rows) + 1
+
+
+def _status_summary(sets: list[dict]) -> str:
+    counts: dict[str, int] = {}
+    for entry in sets:
+        label = entry.get("status") or _TBD
+        counts[label] = counts.get(label, 0) + 1
+    parts = " · ".join(f"{label}: {n}" for label, n in counts.items())
+    return f"סה\"כ {len(sets)} Permission Sets  —  {parts}"
+
+
+def _write_band(ws, row: int, first: int, last: int, text: str, fill: str) -> None:
+    if last < first:
+        return
+    for c in range(first, last + 1):
+        _write(ws, row, c, text if c == first else None, fill=fill, align=_HEADER_ALIGN,
+               font=Font(name=_BASE_FONT, bold=True, size=11, color=_WHITE))
+    if last > first:
+        ws.merge_cells(start_row=row, start_column=first, end_row=row, end_column=last)
+
+
+def _build_ps_matrix(ws, model: dict) -> None:
+    block = model.get("permission_sets", {})
+    objects = model.get("objects", [])
+    perms = block.get("system_permissions", [])
+    sets = block.get("sets", [])
+    lead = ["Permission Set", "סוג", "סטטוס"]
+    obj_start = len(lead) + 1
+    sys_start = obj_start + len(objects)
+    detail_start = sys_start + len(perms)
+    total = detail_start + len(_PS_DETAIL_HEADERS) - 1
+    _sheet_intro(ws, block.get("title", "מטריצת Permission Sets — כל PS על פני אובייקטים, הרשאות מערכת ופירוט"),
+                 block.get("subtitle", _PS_SUBTITLE))
+    _write(ws, 3, 1, _status_summary(sets), border=False,
+           font=Font(name=_BASE_FONT, bold=True, size=10, color=_SHARING_HEADER))
+    row = _write_base_profiles(ws, block.get("base_profiles", []), 5, total)
+    _write(ws, row, 1, block.get("legend", _PS_MATRIX_LEGEND), border=False,
+           font=Font(name=_BASE_FONT, bold=True, color="B71C1C"))
+    row += 1
+    _write_band(ws, row, 1, len(lead), "הסט · סוג · סטטוס הקמה", _DARK_HEADER)
+    _write_band(ws, row, obj_start, sys_start - 1, "הרשאות אובייקטים (CRUD)", _SHARING_HEADER)
+    _write_band(ws, row, sys_start, detail_start - 1, "הרשאות מערכת", "00695C")
+    _write_band(ws, row, detail_start, total, "פירוט — FLS · Tabs · Apex · הערות", "455A64")
+    header = [*lead, *[o.get("label", "") for o in objects], *perms, *_PS_DETAIL_HEADERS]
+    _write_header_row(ws, row + 1, header, _DARK_HEADER)
+    api_row = ["(שם מערכת)", "", "", *[o.get("api", "") for o in objects]]
+    for c, text in enumerate(api_row, start=1):
+        _write(ws, row + 2, c, text, fill=_SUB_HEADER, align=_CENTER_WRAP,
+               font=Font(name=_BASE_FONT, size=8, color=_WHITE))
+    for c in range(sys_start, total + 1):
+        _write(ws, row + 2, c, None, fill=_SUB_HEADER)
+    ws.freeze_panes = f"D{row + 3}"
+    for i, entry in enumerate(sets):
+        _write_ps_row(ws, row + 3 + i, entry, objects, perms, obj_start, sys_start, detail_start)
+    _set_widths(ws, [30, 16, 14, *[11] * len(objects), *[13] * len(perms),
+                     *_PS_DETAIL_WIDTHS])
+
+
+def _build_ps_row_access(ws, row: int, entry: dict, objects: list[dict], start: int) -> None:
+    muting = _is_muting(entry)
+    access = entry.get("access", {})
+    for c, obj in enumerate(objects, start=start):
+        value = access.get(obj.get("api")) or access.get(obj.get("label")) or _NONE_MARK
+        fill, color = _access_style(value)
+        if muting and value != _NONE_MARK:
+            fill, color = _MUTING_FILL, "B71C1C"
+        _write(ws, row, c, value, fill=fill, align=_CENTER,
+               font=Font(name=_BASE_FONT, size=9, color=color))
+
+
+def _build_ps_row_system(ws, row: int, entry: dict, perms: list[str], start: int) -> None:
+    muting = _is_muting(entry)
+    granted = entry.get("system", {})
+    for c, perm in enumerate(perms, start=start):
+        value = granted.get(perm) or _NONE_MARK
+        if value == _NONE_MARK:
+            fill, color = "ECEFF1", "777777"
+        elif muting:
+            fill, color = _MUTING_FILL, "B71C1C"
+        else:
+            fill, color = (_CHECK_FILL, "1B5E20") if value == _CHECK else ("FFF9C4", "000000")
+        _write(ws, row, c, value, fill=fill, align=_CENTER_WRAP,
+               font=Font(name=_BASE_FONT, size=9, color=color))
+
+
+def _write_ps_row(ws, row: int, entry: dict, objects: list[dict], perms: list[str],
+                  obj_start: int, sys_start: int, detail_start: int) -> None:
+    muting = _is_muting(entry)
+    _write_ps_name(ws, row, entry)
+    _write(ws, row, 2, entry.get("type", ""), align=_CENTER_WRAP,
+           fill=_MUTING_FILL if muting else None, font=Font(name=_BASE_FONT, size=9))
+    _write(ws, row, 3, entry.get("status", _TBD), align=_CENTER_WRAP,
+           fill=_STATUS_COLORS.get(entry.get("status_level", ""), "FFF9C4"),
+           font=Font(name=_BASE_FONT, size=10, bold=True))
+    _build_ps_row_access(ws, row, entry, objects, obj_start)
+    _build_ps_row_system(ws, row, entry, perms, sys_start)
+    for c, key in enumerate(_PS_DETAIL_KEYS, start=detail_start):
+        _write(ws, row, c, entry.get(key, _NONE_MARK), align=_RIGHT_TOP,
+               font=Font(name=_BASE_FONT, size=10))
+
+
+def _build_psg_grid(ws, model: dict) -> None:
+    block = model.get("permission_sets", {})
+    sets = block.get("sets", [])
+    groups = block.get("groups", [])
+    _sheet_intro(ws, block.get("psg_title", "הרכב ה-Permission Set Groups — PS (ימין) × PSG (למעלה)"),
+                 block.get("psg_subtitle", _PSG_SUBTITLE))
+    _write_header_row(ws, 4, ["Permission Set", *[g.get("psg", "") for g in groups],
+                              "סטטוס"], _DARK_HEADER)
+    for c, group in enumerate(groups, start=2):
+        _write(ws, 5, c, group.get("roles", ""), fill=_SUB_HEADER, align=_CENTER_WRAP,
+               font=Font(name=_BASE_FONT, size=8, color=_WHITE))
+    for c in (1, len(groups) + 2):
+        _write(ws, 5, c, "(תפקידים)" if c == 1 else "", fill=_SUB_HEADER,
+               align=_CENTER_WRAP, font=Font(name=_BASE_FONT, size=8, color=_WHITE))
+    ws.freeze_panes = "B6"
+    for i, entry in enumerate(sets):
+        row = 6 + i
+        _write_ps_name(ws, row, entry)
+        for c, group in enumerate(groups, start=2):
+            member = entry.get("name") in group.get("sets", [])
+            _write(ws, row, c, _CHECK if member else _NONE_MARK,
+                   fill=_CHECK_FILL if member else "ECEFF1", align=_CENTER,
+                   font=Font(name=_BASE_FONT, size=11,
+                             color="1B5E20" if member else "777777"))
+        _write(ws, row, len(groups) + 2, entry.get("status", _NONE_MARK),
+               fill=_STATUS_COLORS.get(entry.get("status_level", ""), "FFF9C4"),
+               align=_CENTER_WRAP, font=Font(name=_BASE_FONT, size=10))
+    _set_widths(ws, [30, *[18] * len(groups), 14])
+
+
 def build_workbook(model: dict, output_path: str) -> str:
-    """Render the permissions model to the four-sheet RTL .xlsx; return the path."""
+    """Render the permissions model to the six-sheet RTL .xlsx; return the path."""
     wb = Workbook()
     _build_process(wb.active, model)
     wb.active.title = "1-תפקידים בתהליך"
     _build_matrix(wb.create_sheet("2-מטריצת אובייקטים"), model)
     _build_sharing(wb.create_sheet("3-קבוצות ושיתוף"), model)
     _build_technical(wb.create_sheet("4- טכני (לארכיטקט)"), model)
+    _build_ps_matrix(wb.create_sheet("5-מטריצת Permission Sets"), model)
+    _build_psg_grid(wb.create_sheet("6-הרכב PSG"), model)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
     return output_path

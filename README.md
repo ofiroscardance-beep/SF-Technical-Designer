@@ -2,7 +2,9 @@
 
 An autonomous Salesforce architect. It turns a raw business requirement into a
 formal, grounded Salesforce **technical specification** (`.docx`), and — once a
-human approves it — into a ready-to-execute **implementation backlog** (`.xlsx`).
+human approves it — into a ready-to-execute **implementation backlog** (`.xlsx`)
+and a **data dictionary** (`.xlsx`). When the security model is non-trivial it
+also produces a **permissions matrix** (`.xlsx`) alongside the spec.
 
 Both documents are true right-to-left (RTL): business logic is written in Hebrew,
 Salesforce terminology (Object/API/Flow/Apex/LWC names) stays in English.
@@ -45,7 +47,7 @@ business requirement
 | ----- | ---- |
 | **metadata-explorer** | Read-only SOQL / Tooling API via the `sf` CLI. Discovers which standard/custom objects, fields, record types, and automation actually exist. Never modifies the org. |
 | **knowledge-expert** | Verifies features, limits, and API behaviour against **only** help.salesforce.com and developer.salesforce.com. |
-| **permissions-architect** | Offered when the spec's permissions are complex (several personas, portal + internal users, record-level visibility). Designs the security model and renders the fixed four-sheet permissions audit `.xlsx`. |
+| **permissions-architect** | Offered when the spec's permissions are complex (several personas, portal + internal users, record-level visibility). Designs the security model and renders the fixed six-sheet permissions audit `.xlsx`. |
 | **document-generator** | Renders the final spec `.docx` from the design facts, following `SF_Tech_Spec_Template.md` exactly. |
 | **task-planner** | Runs **only after** the reviewer approves and corrects the spec. Decomposes it into OOTB-first implementation tasks — each with a readable build prompt and grounded API names — as a three-sheet RTL `.xlsx`. |
 | **field-mapper** | Runs at the same gate. Builds the data dictionary: one tab per ERD entity, standard fields verified against the official Object Reference (with source URLs), custom fields split into "already in the org" and "to create". |
@@ -71,15 +73,20 @@ business requirement
 
 ## The permissions matrix (`.xlsx`)
 
-`permissions-architect` produces four RTL sheets in a fixed audit format:
+`permissions-architect` produces six RTL sheets in a fixed audit format:
 
 - **1-תפקידים בתהליך** — every role, grouped by process stage.
 - **2-מטריצת אובייקטים** — role × object CRUD matrix, colour-coded
   (`CRUD` / `CRU` / `R` / `—` / `להגדיר`), with the object API names beneath the
   business labels.
 - **3-קבוצות ושיתוף** — the record-visibility model, widest exposure tier first.
-- **4- טכני (לארכיטקט)** — channel, user license, Permission Set Licenses,
-  Permission Set Group, direct Permission Sets, public groups, and build status.
+- **4- טכני (לארכיטקט)** — channel, user license, base profile, Permission Set
+  Licenses, Permission Set Group, direct Permission Sets, public groups, status.
+- **5-מטריצת Permission Sets** — base profile per license, then one row per
+  Permission Set: build status, object CRUD (same legend as sheet 2), system
+  permissions, FLS, Tabs/Apps, Apex — in banded column groups. Muting sets in red.
+- **6-הרכב PSG** — Permission Set × Permission Set Group membership (✓); a shared
+  extension shows several ✓ in one row.
 
 ## The data dictionary (`.xlsx`)
 
@@ -132,7 +139,7 @@ PYTHONUTF8=1 PYTHONPATH="$(pwd)" ./.venv/Scripts/python.exe -m src.fields_builde
 | `SF_Tech_Spec_Template.md` | Binding structure of the spec document. Edit it to change the output. |
 | `src/renderer.py` | True-RTL `.docx` engine (also a CLI). |
 | `src/excel_builder.py` | True-RTL three-sheet `.xlsx` backlog engine (also a CLI). |
-| `src/permissions_builder.py` | True-RTL four-sheet permissions-audit `.xlsx` engine (also a CLI). |
+| `src/permissions_builder.py` | True-RTL six-sheet permissions-audit `.xlsx` engine (also a CLI). |
 | `src/fields_builder.py` | True-RTL data-dictionary `.xlsx` engine — index sheet + a tab per entity (also a CLI). |
 | `.claude/agents/*.md` | The six specialist sub-agents. |
 | `legacy/` | Retired standalone Python/LangGraph app, kept for reference. |

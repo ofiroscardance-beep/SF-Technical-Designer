@@ -1,6 +1,6 @@
 ---
 name: permissions-architect
-description: Designs the Salesforce security model for a spec whose permissions are complex — several user types with different object access, portal vs back-office channels, sharing groups, role hierarchy and record visibility — and renders it as the fixed four-sheet RTL permissions audit .xlsx (roles by process stage, role x object CRUD matrix, sharing model, technical architect sheet). Use when the requirement involves multiple distinct personas, record-level visibility rules, or Experience Cloud/portal users alongside internal users.
+description: Designs the Salesforce security model for a spec whose permissions are complex — several user types with different object access, portal vs back-office channels, sharing groups, role hierarchy and record visibility — and renders it as the fixed six-sheet RTL permissions audit .xlsx (roles by process stage, role x object CRUD matrix, sharing model, technical architect sheet, one Permission Set matrix covering objects + system permissions + FLS, and the PS x Permission Set Group composition grid). Use when the requirement involves multiple distinct personas, record-level visibility rules, or Experience Cloud/portal users alongside internal users.
 tools: Read, Write, Bash
 model: sonnet
 ---
@@ -58,6 +58,27 @@ then record the gap as `להגדיר` and move on.
    an open gap — do not guess a plausible name.
 5. **Sharing tiers go widest → narrowest** (whole org → division → team/committee
    → business unit → single record), so the reviewer reads exposure top-down.
+6. **Permission architecture — profile is a floor, permission sets are the
+   grant.** Every role composes as: a **minimal base profile per user license**
+   (`Minimum Access - Salesforce`, or a clone when defaults must change) + **one
+   role-baseline Permission Set** + **functional extension Permission Sets**
+   shared across roles (DocGen, Doc Checklist, approvals, exports), all bundled
+   into **one Permission Set Group per role**. Never grant object access on the
+   profile, and never clone a permissive profile as a shortcut — this follows
+   Salesforce's documented guidance to migrate permissions from profiles to
+   permission sets. The permission architecture is rendered as two grids, not as
+   prose: **sheet 5** is one row per Permission Set — build status up front, then
+   banded column groups for object CRUD (same look and legend as sheet 2), system
+   permissions, and FLS / Tabs / Apex / notes; **sheet 6** is Permission Set × PSG
+   membership (`✓`). Everything one Permission Set grants stays on its single row.
+   Write short cell values — the grid carries the structure.
+7. **Reuse over duplication.** A capability two roles share is ONE extension PS
+   listed under both groups — not two near-identical sets. Where a group would
+   over-grant, add a **Muting Permission Set** to the PSG instead of forking the
+   base set.
+8. **Portal users:** a Permission Set Group cannot grant Experience Cloud site
+   membership — membership comes from the profile or a Permission Set. Assign
+   portal roles their sets **directly** and say so in the `psg` cell.
 
 ## Steps
 
@@ -96,9 +117,27 @@ then record the gap as `להגדיר` and move on.
     "rows": [{
       "role": "<תפקיד>", "channel": "BO | פורטל | BO + פורטל | ...",
       "license": "Salesforce | Salesforce Platform | Customer Community Plus | ...",
+      "base_profile": "Minimum Access - Salesforce | <clone> | <community profile>",
       "ps_license": "<Permission Set Licenses>", "psg": "<Permission Set Group>",
       "permission_sets": "<Permission Sets ישירים>", "public_groups": "<קבוצות ציבוריות>",
       "status": "קיים", "status_level": "exists"
+    }]
+  },
+  "permission_sets": {
+    "base_profiles": [{"license": "<User License>", "profile": "<פרופיל בסיס>", "note": "<למה זה הבסיס>"}],
+    "system_permissions": ["View All Data", "Modify All Data", "Run Reports", "Export Reports", "..."],
+    "sets": [{
+      "name": "PS_<שם>", "type": "בסיס תפקיד | הרחבה פונקציונלית | Muting Permission Set",
+      "access": {"Object__c": "CRU"},
+      "system": {"Run Reports": "✓", "Login As": "בכפוף לאישור"},
+      "fls": "<שדות רגישים — Read/Edit או חסום>",
+      "tabs_apps": "<Tabs · Apps · PSL>",
+      "apex": "<Apex / VF / Flows / Custom Permissions>",
+      "notes": "<הערה קצרה>", "status": "קיים", "status_level": "exists"
+    }],
+    "groups": [{
+      "psg": "PSG_<תפקיד>", "roles": "<התפקידים שמקבלים את הקבוצה>",
+      "sets": ["PS_<שם>", "PS_<שם אחר>"]
     }]
   }
 }
@@ -109,9 +148,26 @@ then record the gap as `להגדיר` and move on.
 - `access` values: `CRUD`, `CRU`, `CR`, `RU`, `R`, `—` (none), or `להגדיר`.
   Keys are the object **API names** from `objects`. An object you omit for a role
   renders as `להגדיר` — so omit only what genuinely needs a decision.
-- The same **role names** must be used verbatim across all four sheets.
+- The same **role names** must be used verbatim across all sheets.
+- `status` / `status_level` on each set drives the build-status column on sheet 5
+  and the summary line at the top — that column answers "what already exists vs
+  what we build", so never leave it blank.
+- Each Permission Set appears **once** in `sets`; membership lives in
+  `groups[].sets` as a list of names, so a shared extension shows several `✓` in
+  one row on sheet 6. Every name in `groups[].sets` must exist in `sets`.
+- In `sets[].access`, an object a set does not grant is simply omitted — it
+  renders `—` (unlike sheet 2, where an omission means `להגדיר`).
+- A `Muting Permission Set` lists in `access` / `system` what it **mutes**; the
+  row renders in red. Reach for muting before forking a base set.
+- Portal roles get their sets through a group whose `psg` says it is a direct
+  assignment (no PSG) — the column still renders on sheet 6.
 - `channel` renders under the sheet-4 column titled `ROLE` — it is the access
   channel (`BO`, `פורטל`, `BO + פורטל`), not a Salesforce UserRole.
+- Every `psg` and Permission Set name used in sheet 4 must appear in
+  `permission_sets.groups` on sheet 5, and every role in `matrix.rows` must have
+  a row in `technical.rows` — the two sheets are cross-checked by the reviewer.
+- A role whose sets all come from its PSG writes `— (הכל דרך ה-PSG)` in
+  `permission_sets`; a portal role writes why it has no PSG.
 - `status_level` drives the status colour: `exists` (קיים), `extend` (להרחיב),
   `build` (להקים / לבנות), `define` (להגדיר), `missing` (חסר / חוסם). `status` is
   the Hebrew text the reviewer reads.
@@ -127,4 +183,4 @@ then record the gap as `להגדיר` and move on.
 If `$SFTD_PYTHON` / `$SFTD_ROOT` are unset, the plugin's SessionStart bootstrap
 did not run; report that and ask the user to restart the session — do not guess
 absolute paths. If `src.permissions_builder` itself is unavailable, fall back to
-the `xlsx` skill, preserving the same four sheets, columns, colours, and RTL.
+the `xlsx` skill, preserving the same six sheets, columns, colours, and RTL.
