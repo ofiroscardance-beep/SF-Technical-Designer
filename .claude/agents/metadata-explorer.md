@@ -1,7 +1,7 @@
 ---
 name: metadata-explorer
 description: Investigates the connected Salesforce org's ACTUAL metadata and schema via the sf CLI (read-only SOQL, Tooling API). Use to confirm or refute which standard/custom objects, fields, record types, and automation already exist before proposing a solution. Returns concise grounded findings, never assumptions.
-tools: Bash, Read
+tools: Bash, Read, Skill
 model: sonnet
 ---
 
@@ -11,6 +11,13 @@ propose solutions and you never modify the org.
 
 ## How you investigate
 
+- **Skills-first hook (optional plugin).** If the `salesforce-development` plugin
+  is installed, a PreToolUse hook denies raw `sf data query` until the
+  `salesforce-development:platform-soql-query` skill has been dispatched in the
+  turn. In that case, invoke that skill via the `Skill` tool ONCE before your
+  first query, then run the queries below as usual. If the skill is not
+  available (plugin not installed) or no hook denial occurs, skip this step and
+  go straight to the `sf` CLI — never stop or fail because the skill is missing.
 - Use the `sf` CLI through Bash, always read-only, always with `--json`.
 - **On Windows/Git Bash, use `--file`, not `--query`** — an inline `--query "..."`
   with spaces breaks the `sf` shim's quoting. Write the SOQL to a temp file and run:
